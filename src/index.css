@@ -582,3 +582,95 @@ body {
 .btn-secondary:hover {
   background-color: var(--bg-primary);
 }
+
+/* --- RECEIPT PREVIEW & PRINT --- */
+.receipt-preview {
+  background: white;
+  padding: 2rem;
+  border-radius: var(--radius-md);
+  border: 1px dashed var(--border);
+  color: var(--text-primary);
+  font-family: 'Courier New', Courier, monospace;
+}
+
+.receipt-header {
+  text-align: center;
+  margin-bottom: 2rem;
+  border-bottom: 2px solid var(--border);
+  padding-bottom: 1rem;
+}
+
+.receipt-header h3 {
+  font-size: 1.5rem;
+  font-weight: bold;
+  margin-bottom: 0.5rem;
+  font-family: 'Inter', sans-serif;
+}
+
+.receipt-body {
+  margin-bottom: 2rem;
+}
+
+.receipt-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+  font-size: 1rem;
+}
+
+.receipt-total {
+  border-top: 2px dashed var(--border);
+  padding-top: 1rem;
+  margin-top: 1rem;
+  font-size: 1.25rem;
+  font-weight: bold;
+}
+
+.receipt-footer {
+  text-align: center;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  border-top: 1px solid var(--border);
+  padding-top: 1rem;
+  font-family: 'Inter', sans-serif;
+}
+
+@media print {
+  /* Cache tous les éléments de l'application sauf le modal de reçu */
+  .sidebar, .top-header, .dashboard, .modal-header, .modal-footer, .no-print {
+    display: none !important;
+  }
+
+  /* Réinitialise la superposition pour l'impression */
+  .modal-overlay {
+    position: static;
+    background: transparent !important;
+    padding: 0;
+    display: block;
+  }
+
+  /* Étire le contenu du modal sur toute la page */
+  .modal-content {
+    position: static;
+    width: 100%;
+    max-width: 100% !important;
+    margin: 0;
+    padding: 0;
+    box-shadow: none !important;
+    border: none !important;
+    background: white !important;
+    transform: none;
+  }
+
+  /* Formate le reçu pour qu'il prenne toute la largeur de l'impression */
+  .receipt-preview {
+    border: none !important;
+    padding: 2cm !important;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  
+  body {
+    background: white !important;
+  }
+}

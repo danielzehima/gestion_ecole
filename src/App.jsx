@@ -23,6 +23,7 @@ import {
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [selectedReceipt, setSelectedReceipt] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
 
   // --- Configuration et Paramètres ---
@@ -304,7 +305,7 @@ function App() {
                           <td>{formatDate(p.date)}</td>
                           <td>{formatMoney(p.amount)}</td>
                           <td style={{ textAlign: 'right' }}>
-                            <button className="icon-btn" title="Imprimer le reçu" onClick={() => alert(`Impression du reçu pour ${p.studentName}`)}>
+                            <button className="icon-btn" title="Imprimer le reçu" onClick={() => setSelectedReceipt(p)}>
                               <Printer size={16} />
                             </button>
                           </td>
@@ -435,7 +436,7 @@ function App() {
                         <td>{formatDate(p.date)}</td>
                         <td style={{fontWeight: 600, color: 'var(--success)'}}>+ {formatMoney(p.amount)}</td>
                         <td style={{ textAlign: 'right' }}>
-                          <button className="icon-btn" title="Imprimer le reçu" onClick={() => alert(`Impression du reçu #${p.id} pour ${p.studentName}`)}>
+                          <button className="icon-btn" title="Imprimer le reçu" onClick={() => setSelectedReceipt(p)}>
                             <Printer size={16} />
                           </button>
                         </td>
@@ -613,6 +614,61 @@ function App() {
                   <button type="submit" className="btn-primary">Valider le paiement</button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* --- MODAL REÇU (PRINT PREVIEW) --- */}
+        {selectedReceipt && (
+          <div className="modal-overlay" onClick={() => setSelectedReceipt(null)}>
+            <div className="modal-content" style={{ maxWidth: '600px' }} onClick={(e) => e.stopPropagation()}>
+              <div className="modal-header">
+                <h2>Aperçu du Reçu</h2>
+                <button className="modal-close" onClick={() => setSelectedReceipt(null)}>
+                  <X size={20} />
+                </button>
+              </div>
+              <div className="modal-body">
+                {/* Print Area */}
+                <div className="receipt-print-area receipt-preview">
+                  <div className="receipt-header">
+                    <h3>{settings.schoolName}</h3>
+                    <p>Année Scolaire {settings.academicYear}</p>
+                    <p>Reçu de Paiement N° PAY-{selectedReceipt.id.toString().slice(-4)}</p>
+                  </div>
+                  <div className="receipt-body">
+                    <div className="receipt-row">
+                      <span style={{ color: 'var(--text-secondary)' }}>Date :</span>
+                      <span>{formatDate(selectedReceipt.date)}</span>
+                    </div>
+                    <div className="receipt-row">
+                      <span style={{ color: 'var(--text-secondary)' }}>Élève :</span>
+                      <span><strong>{selectedReceipt.studentName}</strong></span>
+                    </div>
+                    <div className="receipt-row">
+                      <span style={{ color: 'var(--text-secondary)' }}>Classe :</span>
+                      <span>{selectedReceipt.fullClassName}</span>
+                    </div>
+                    
+                    <div className="receipt-total">
+                      <div className="receipt-row">
+                        <span>Montant Encaissé :</span>
+                        <span>{formatMoney(selectedReceipt.amount)}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="receipt-footer">
+                    <p>Ce reçu confirme le paiement pour la scolarité de l'élève mentionné ci-dessus.</p>
+                    <p>Merci de votre confiance.</p>
+                  </div>
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button className="btn-secondary" onClick={() => setSelectedReceipt(null)}>Fermer</button>
+                <button className="btn-primary" onClick={() => window.print()}>
+                  <Printer size={18} /> Imprimer (PDF)
+                </button>
+              </div>
             </div>
           </div>
         )}
