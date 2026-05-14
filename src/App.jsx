@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   LayoutDashboard, 
   Users, 
@@ -17,56 +17,180 @@ import {
   Trash2,
   Printer,
   Mail,
-  LogOut
+  LogOut,
+  UserPlus,
+  Shield
 } from 'lucide-react';
+import LandingPage from './LandingPage';
+import CheckoutPage from './CheckoutPage';
+import AuthPage from './AuthPage';
+import { supabase } from './supabaseClient';
 
 function App() {
+  const [currentView, setCurrentView] = useState('landing');
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [selectedReceipt, setSelectedReceipt] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedPlan, setSelectedPlan] = useState(null);
+
+  // Écoute de l'état d'authentification Supabase
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        setCurrentView((prev) => (prev === 'landing' ? 'dashboard' : prev));
+      }
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT') {
+        setCurrentView('landing');
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   // --- Configuration et Paramètres ---
   const [settings, setSettings] = useState({
-    schoolName: 'École Primaire Les Lilas',
-    academicYear: '2023-2024',
-    currency: '€'
+    schoolName: '',
+    academicYear: '',
+    currency: 'FCFA'
   });
 
   const [academicYears, setAcademicYears] = useState(['2022-2023', '2023-2024', '2024-2025']);
   const [newYearInput, setNewYearInput] = useState('');
 
-  const [classes, setClasses] = useState([
-    { id: 1, name: 'CP', fee: 1500 },
-    { id: 2, name: 'CE1', fee: 1500 },
-    { id: 3, name: 'CE2', fee: 1500 },
-    { id: 4, name: 'CM1', fee: 1500 },
-    { id: 5, name: 'CM2', fee: 1500 },
-  ]);
+  const [classes, setClasses] = useState([]);
   const [newClass, setNewClass] = useState({ name: '', fee: '' });
 
   // --- Données d'état (State) ---
-  const [students, setStudents] = useState([
-    { id: 1, name: 'Lucas Martin', className: 'CP', section: 'A', amountPaid: 1500 },
-    { id: 2, name: 'Emma Bernard', className: 'CE1', section: 'B', amountPaid: 1500 },
-    { id: 3, name: 'Thomas Dubois', className: 'CM2', section: 'A', amountPaid: 1500 },
-    { id: 4, name: 'Chloé Petit', className: 'CE2', section: 'A', amountPaid: 1350 },
-    { id: 5, name: 'Hugo Leroy', className: 'CM1', section: 'B', amountPaid: 1200 },
-    { id: 6, name: 'Lina Richard', className: 'CE1', section: 'A', amountPaid: 1350 },
-  ]);
-
-  const [payments, setPayments] = useState([
-    { id: 1, studentId: 1, date: new Date().toISOString(), amount: 150 },
-    { id: 2, studentId: 2, date: new Date().toISOString(), amount: 150 },
-    { id: 3, studentId: 3, date: new Date(Date.now() - 86400000).toISOString(), amount: 300 },
-    { id: 4, studentId: 4, date: new Date(Date.now() - 172800000).toISOString(), amount: 150 },
-  ]);
-
+  const [students, setStudents] = useState([]);
+  const [payments, setPayments] = useState([]);
   const [newPayment, setNewPayment] = useState({ studentId: '', amount: '' });
+  const [loadingData, setLoadingData] = useState(false);
+  
+  // Nouveaux états pour Inscription
+  const [enrollmentForm, setEnrollmentForm] = useState({
+    lastName: '',
+    firstName: '',
+    className: '',
+    birthDate: '',
+    birthPlace: '',
+    address: '',
+    isNewStudent: true,
+    parentName: '',
+    parentPhone: '',
+    parentEmail: ''
+  });
+
+  // Nouveau état pour la gestion du personnel
+  const [staff, setStaff] = useState([]);
+  const [newStaff, setNewStaff] = useState({ email: '', role: 'Secrétaire' });
+  
+  // Gestion du multi-rôle
+  const [activeSchoolId, setActiveSchoolId] = useState(null);
+  const [currentUserRole, setCurrentUserRole] = useState('Admin');
+
+  // --- Fetch Data ---
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user && (currentView === 'dashboard' || currentView === 'students' || currentView === 'payments' || currentView === 'settings')) {
+        fetchDashboardData(session.user);
+      }
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user && (currentView === 'dashboard' || currentView === 'students' || currentView === 'payments' || currentView === 'settings')) {
+        fetchDashboardData(session.user);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [currentView]);
+
+  const fetchDashboardData = async (user) => {
+    setLoadingData(true);
+    try {
+      let schoolId = user.id;
+      let role = 'Administrateur';
+
+      // 1. Vérifier si l'utilisateur est un membre du personnel
+      const { data: staffData } = await supabase.from('staff').select('school_id, role').eq('email', user.email).maybeSingle();
+      if (staffData) {
+        schoolId = staffData.school_id;
+        role = staffData.role;
+      }
+      
+      setActiveSchoolId(schoolId);
+      setCurrentUserRole(role);
+
+      // 2. Récupérer les Settings
+      const { data: settingsData } = await supabase.from('settings').select('*').eq('user_id', schoolId).single();
+      if (settingsData) {
+        setSettings({
+          schoolName: settingsData.school_name || 'Mon École',
+          academicYear: settingsData.academic_year || '2023-2024',
+          currency: settingsData.currency || 'FCFA'
+        });
+      } else if (role === 'Administrateur') {
+        const defaultSettings = { user_id: schoolId, school_name: 'Mon École', academic_year: '2023-2024', currency: 'FCFA' };
+        await supabase.from('settings').insert([defaultSettings]);
+      }
+
+      // 3. Classes
+      const { data: classesData } = await supabase.from('classes').select('*').eq('user_id', schoolId);
+      if (classesData) setClasses(classesData);
+
+      // 4. Students
+      const { data: studentsData } = await supabase.from('students').select('*').eq('user_id', schoolId);
+      if (studentsData) {
+        setStudents(studentsData.map(s => ({
+          id: s.id,
+          name: `${s.first_name} ${s.last_name}`,
+          firstName: s.first_name,
+          lastName: s.last_name,
+          className: s.class_name,
+          section: s.section,
+          birthDate: s.birth_date,
+          birthPlace: s.birth_place,
+          address: s.address,
+          isNewStudent: s.is_new_student,
+          parentName: s.parent_name,
+          parentPhone: s.parent_phone,
+          parentEmail: s.parent_email,
+          amountPaid: s.amount_paid || 0
+        })));
+      }
+
+      // 5. Payments
+      const { data: paymentsData } = await supabase.from('payments').select('*').eq('user_id', schoolId).order('date', { ascending: false });
+      if (paymentsData) {
+        setPayments(paymentsData.map(p => ({
+          id: p.id,
+          studentId: p.student_id,
+          date: p.date,
+          amount: p.amount
+        })));
+      }
+
+      // 6. Staff (Roles) - Seulement si admin
+      if (role === 'Administrateur') {
+        const { data: staffMembers } = await supabase.from('staff').select('*').eq('school_id', schoolId);
+        if (staffMembers) setStaff(staffMembers);
+      }
+    } catch (error) {
+      console.error("Erreur de récupération :", error);
+    } finally {
+      setLoadingData(false);
+    }
+  };
 
   // --- Helpers ---
   const formatMoney = (amount) => {
-    return `${amount.toLocaleString('fr-FR')} ${settings.currency}`;
+    return `${(amount || 0).toLocaleString('fr-FR')} ${settings.currency}`;
   };
 
   const getStudentTuition = (className) => {
@@ -98,8 +222,8 @@ function App() {
   const paymentsWithStudents = useMemo(() => {
     return payments.map(p => {
       const student = studentsWithTuition.find(s => s.id === p.studentId);
-      return { ...p, studentName: student?.name, fullClassName: `${student?.className} - ${student?.section}` };
-    }).sort((a, b) => new Date(b.date) - new Date(a.date));
+      return { ...p, studentName: student?.name || 'Inconnu', fullClassName: student ? `${student.className} - ${student.section}` : '-' };
+    });
   }, [payments, studentsWithTuition]);
 
   const filteredStudents = useMemo(() => {
@@ -123,49 +247,158 @@ function App() {
   }, [paymentsWithStudents, searchQuery]);
 
   // --- Actions ---
-  const handleAddPayment = (e) => {
+  const handleAddPayment = async (e) => {
     e.preventDefault();
-    if (!newPayment.studentId || !newPayment.amount) return;
+    if (!newPayment.studentId || !newPayment.amount || !activeSchoolId) return;
 
     const amountNum = parseFloat(newPayment.amount);
-    const studentIdNum = parseInt(newPayment.studentId);
+    const studentIdStr = newPayment.studentId;
 
-    const payment = {
-      id: Date.now(),
-      studentId: studentIdNum,
+    const paymentEntry = {
+      student_id: studentIdStr,
       date: new Date().toISOString(),
-      amount: amountNum
+      amount: amountNum,
+      user_id: activeSchoolId
     };
-    setPayments([payment, ...payments]);
 
-    setStudents(students.map(s => {
-      if (s.id === studentIdNum) {
-        return { ...s, amountPaid: s.amountPaid + amountNum };
-      }
-      return s;
-    }));
+    const { data: insertedPayment, error } = await supabase.from('payments').insert([paymentEntry]).select().single();
+    if (error) {
+      alert("Erreur lors de l'enregistrement du paiement : " + error.message);
+      return;
+    }
+
+    const student = students.find(s => s.id === studentIdStr);
+    const newAmountPaid = (student.amountPaid || 0) + amountNum;
+    
+    await supabase.from('students').update({ amount_paid: newAmountPaid }).eq('id', studentIdStr);
+
+    setPayments([{
+      id: insertedPayment.id,
+      studentId: insertedPayment.student_id,
+      date: insertedPayment.date,
+      amount: insertedPayment.amount
+    }, ...payments]);
+
+    setStudents(students.map(s => s.id === studentIdStr ? { ...s, amountPaid: newAmountPaid } : s));
 
     setIsPaymentModalOpen(false);
     setNewPayment({ studentId: '', amount: '' });
   };
 
-  const handleAddYear = () => {
+  const handleAddYear = async () => {
     if (newYearInput && !academicYears.includes(newYearInput)) {
       setAcademicYears([...academicYears, newYearInput]);
+      
+      await supabase.from('settings').upsert({ 
+        user_id: activeSchoolId, 
+        academic_year: newYearInput,
+        school_name: settings.schoolName,
+        currency: settings.currency
+      }, { onConflict: 'user_id' });
+
       setSettings({ ...settings, academicYear: newYearInput });
       setNewYearInput('');
     }
   };
 
-  const handleAddClass = () => {
-    if (newClass.name && newClass.fee) {
-      setClasses([...classes, { id: Date.now(), name: newClass.name, fee: parseFloat(newClass.fee) }]);
-      setNewClass({ name: '', fee: '' });
+  const handleAddClass = async (e) => {
+    if (e) e.preventDefault();
+    if (newClass.name && newClass.fee && activeSchoolId) {
+      const newCls = { name: newClass.name, fee: parseFloat(newClass.fee), user_id: activeSchoolId };
+      
+      const { data, error } = await supabase.from('classes').insert([newCls]).select().single();
+      if (!error && data) {
+        setClasses([...classes, data]);
+        setNewClass({ name: '', fee: '' });
+      } else {
+        console.error("Erreur ajout classe:", error);
+        alert("Erreur lors de l'ajout de la classe : " + (error?.message || "Inconnue"));
+      }
+    } else {
+      alert("Veuillez remplir le nom et le montant de la classe.");
     }
   };
 
-  const handleRemoveClass = (id) => {
+  const handleRemoveClass = async (id) => {
+    await supabase.from('classes').delete().eq('id', id);
     setClasses(classes.filter(c => c.id !== id));
+  };
+
+  const handleEnrollStudent = async (e) => {
+    e.preventDefault();
+    if (!enrollmentForm.lastName || !enrollmentForm.firstName || !enrollmentForm.className || !activeSchoolId) return;
+
+    const newStudentEntry = {
+      user_id: activeSchoolId,
+      last_name: enrollmentForm.lastName,
+      first_name: enrollmentForm.firstName,
+      class_name: enrollmentForm.className,
+      section: 'A',
+      birth_date: enrollmentForm.birthDate,
+      birth_place: enrollmentForm.birthPlace,
+      address: enrollmentForm.address,
+      is_new_student: enrollmentForm.isNewStudent,
+      parent_name: enrollmentForm.parentName,
+      parent_phone: enrollmentForm.parentPhone,
+      parent_email: enrollmentForm.parentEmail,
+      amount_paid: 0
+    };
+
+    const { data: insertedStudent, error } = await supabase.from('students').insert([newStudentEntry]).select().single();
+    
+    if (error) {
+      alert("Erreur lors de l'inscription : " + error.message);
+      return;
+    }
+
+    setStudents([...students, {
+      id: insertedStudent.id,
+      name: `${insertedStudent.first_name} ${insertedStudent.last_name}`,
+      firstName: insertedStudent.first_name,
+      lastName: insertedStudent.last_name,
+      className: insertedStudent.class_name,
+      section: insertedStudent.section,
+      birthDate: insertedStudent.birth_date,
+      birthPlace: insertedStudent.birth_place,
+      address: insertedStudent.address,
+      isNewStudent: insertedStudent.is_new_student,
+      parentName: insertedStudent.parent_name,
+      parentPhone: insertedStudent.parent_phone,
+      parentEmail: insertedStudent.parent_email,
+      amountPaid: 0
+    }]);
+
+    alert("Élève inscrit avec succès !");
+    setEnrollmentForm({
+      lastName: '', firstName: '', className: '', birthDate: '', birthPlace: '', address: '', isNewStudent: true, parentName: '', parentPhone: '', parentEmail: ''
+    });
+    setActiveTab('students');
+  };
+
+  const handleAddStaff = async (e) => {
+    e.preventDefault();
+    if (!newStaff.email || currentUserRole !== 'Administrateur') return;
+
+    const staffEntry = {
+      school_id: activeSchoolId,
+      email: newStaff.email,
+      role: newStaff.role
+    };
+
+    const { data: insertedStaff, error } = await supabase.from('staff').insert([staffEntry]).select().single();
+    if (!error && insertedStaff) {
+      setStaff([...staff, insertedStaff]);
+      setNewStaff({ email: '', role: 'Secrétaire' });
+      alert("Utilisateur ajouté avec succès.");
+    } else {
+      alert("Erreur lors de l'ajout de l'utilisateur : " + (error?.message || ""));
+    }
+  };
+
+  const handleRemoveStaff = async (id) => {
+    if (currentUserRole !== 'Administrateur') return;
+    await supabase.from('staff').delete().eq('id', id);
+    setStaff(staff.filter(s => s.id !== id));
   };
 
   const formatDate = (isoString) => {
@@ -183,32 +416,82 @@ function App() {
     return <span className="status-badge status-late">En retard</span>;
   };
 
+  if (currentView === 'landing') {
+    return (
+      <LandingPage 
+        onLogin={() => setCurrentView('auth')} 
+        onSubscribe={(plan) => { 
+          setSelectedPlan(plan); 
+          setCurrentView('auth'); 
+        }} 
+      />
+    );
+  }
+
+  if (currentView === 'auth') {
+    return (
+      <AuthPage 
+        onBack={() => setCurrentView('landing')} 
+        onSuccess={() => {
+          if (selectedPlan) setCurrentView('checkout');
+          else setCurrentView('dashboard');
+        }} 
+      />
+    );
+  }
+
+  if (currentView === 'checkout') {
+    return (
+      <CheckoutPage 
+        plan={selectedPlan}
+        onBack={() => setCurrentView('landing')} 
+        onSuccess={() => {
+          setSelectedPlan(null);
+          setCurrentView('dashboard');
+        }} 
+      />
+    );
+  }
+
   return (
     <div className="app-container">
       {/* Sidebar */}
       <aside className="sidebar">
-        <div className="sidebar-header">
+        <div className="sidebar-header" onClick={() => setCurrentView('landing')} style={{ cursor: 'pointer' }}>
           <div className="sidebar-logo-icon">
             <CreditCard size={24} />
           </div>
           <span className="sidebar-title">ScolariPay</span>
         </div>
         
+        <div style={{ padding: '0.5rem 1.5rem', marginBottom: '1rem', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+          Connecté en tant que: <strong style={{ color: 'var(--text-primary)' }}>{currentUserRole}</strong>
+        </div>
+
         <nav className="sidebar-nav">
           <a href="#" className={`nav-item ${activeTab === 'dashboard' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('dashboard'); }}>
             <LayoutDashboard size={20} /> Tableau de bord
+          </a>
+          <a href="#" className={`nav-item ${activeTab === 'inscription' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('inscription'); }}>
+            <UserPlus size={20} /> Inscription
           </a>
           <a href="#" className={`nav-item ${activeTab === 'students' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('students'); }}>
             <Users size={20} /> Élèves
           </a>
           <a href="#" className={`nav-item ${activeTab === 'payments' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('payments'); }}>
-            <Wallet size={20} /> Paiements
+            <Printer size={20} /> Reçus / Paiements
           </a>
-          <a href="#" className={`nav-item ${activeTab === 'settings' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('settings'); }}>
-            <Settings size={20} /> Paramètres
-          </a>
+          {currentUserRole === 'Administrateur' && (
+            <a href="#" className={`nav-item ${activeTab === 'settings' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('settings'); }}>
+              <Settings size={20} /> Paramètres
+            </a>
+          )}
           <div style={{ flex: 1 }}></div>
-          <a href="#" className="nav-item" style={{ color: 'var(--danger)', marginTop: 'auto' }} onClick={(e) => { e.preventDefault(); alert("Déconnexion en cours..."); }}>
+          <a href="#" className="nav-item" style={{ color: 'var(--danger)', marginTop: 'auto' }} onClick={async (e) => { 
+            e.preventDefault(); 
+            await supabase.auth.signOut();
+            setCurrentView('landing'); 
+          }}>
             <LogOut size={20} /> Déconnexion
           </a>
         </nav>
@@ -345,6 +628,150 @@ function App() {
                   </div>
                 </div>
               </div>
+
+              {/* Gestion des rôles et utilisateurs */}
+              <div className="card" style={{ marginTop: '2rem' }}>
+                <div className="card-header">
+                  <h2 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><Shield size={20} className="text-accent" /> Gestion des accès (Personnel)</h2>
+                </div>
+                <div className="card-body">
+                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginBottom: '1.5rem' }}>Ajoutez des membres de votre administration (Comptable, Secrétaire) et attribuez-leur des droits d'accès à la plateforme.</p>
+                  
+                  <form onSubmit={handleAddStaff} style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end', marginBottom: '2rem', flexWrap: 'wrap' }}>
+                    <div className="form-group" style={{ flex: 2, minWidth: '200px' }}>
+                      <label className="form-label">Email du collaborateur</label>
+                      <input type="email" className="form-input" required value={newStaff.email} onChange={e => setNewStaff({...newStaff, email: e.target.value})} placeholder="collaborateur@ecole.com" />
+                    </div>
+                    <div className="form-group" style={{ flex: 1, minWidth: '150px' }}>
+                      <label className="form-label">Rôle</label>
+                      <select className="form-input" value={newStaff.role} onChange={e => setNewStaff({...newStaff, role: e.target.value})}>
+                        <option value="Administrateur">Administrateur</option>
+                        <option value="Comptable">Comptable</option>
+                        <option value="Secrétaire">Secrétaire</option>
+                        <option value="Professeur">Professeur</option>
+                      </select>
+                    </div>
+                    <button type="submit" className="btn-primary" style={{ marginBottom: '1.5rem' }}><UserPlus size={18} /> Inviter</button>
+                  </form>
+
+                  <div className="table-responsive">
+                    <table className="table">
+                      <thead>
+                        <tr>
+                          <th>Email</th>
+                          <th>Rôle</th>
+                          <th className="text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {staff.length === 0 ? (
+                          <tr><td colSpan="3" style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>Aucun membre du personnel invité.</td></tr>
+                        ) : (
+                          staff.map(s => (
+                            <tr key={s.id}>
+                              <td>{s.email}</td>
+                              <td><span className="status-badge status-good">{s.role}</span></td>
+                              <td className="text-right">
+                                <button className="btn-secondary" style={{ padding: '0.25rem', color: 'var(--danger)' }} onClick={() => handleRemoveStaff(s.id)}>
+                                  <Trash2 size={16} />
+                                </button>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'inscription' && (
+          <div className="fade-in">
+            <h1 style={{ fontSize: '1.5rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '1.5rem' }}>Nouvelle Inscription</h1>
+            <div className="card" style={{ maxWidth: '800px' }}>
+              <div className="card-header">
+                <h2 className="card-title">Dossier d'inscription</h2>
+              </div>
+              <div className="card-body">
+                <form onSubmit={handleEnrollStudent}>
+                  {/* Informations Personnelles */}
+                  <h3 style={{ fontSize: '1.125rem', fontWeight: 600, marginBottom: '1rem', color: 'var(--text-primary)', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem' }}>Informations de l'élève</h3>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
+                    <div className="form-group">
+                      <label className="form-label">Nom <span className="text-danger">*</span></label>
+                      <input type="text" className="form-input" required value={enrollmentForm.lastName} onChange={e => setEnrollmentForm({...enrollmentForm, lastName: e.target.value})} placeholder="Nom de famille" />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Prénom(s) <span className="text-danger">*</span></label>
+                      <input type="text" className="form-input" required value={enrollmentForm.firstName} onChange={e => setEnrollmentForm({...enrollmentForm, firstName: e.target.value})} placeholder="Prénoms" />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Date de naissance</label>
+                      <input type="date" className="form-input" value={enrollmentForm.birthDate} onChange={e => setEnrollmentForm({...enrollmentForm, birthDate: e.target.value})} />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Lieu de naissance</label>
+                      <input type="text" className="form-input" value={enrollmentForm.birthPlace} onChange={e => setEnrollmentForm({...enrollmentForm, birthPlace: e.target.value})} placeholder="Ville, Pays" />
+                    </div>
+                    <div className="form-group" style={{ gridColumn: 'span 2' }}>
+                      <label className="form-label">Lieu d'habitation (Adresse)</label>
+                      <input type="text" className="form-input" value={enrollmentForm.address} onChange={e => setEnrollmentForm({...enrollmentForm, address: e.target.value})} placeholder="Quartier, Rue..." />
+                    </div>
+                  </div>
+
+                  {/* Parcours Scolaire */}
+                  <h3 style={{ fontSize: '1.125rem', fontWeight: 600, marginBottom: '1rem', color: 'var(--text-primary)', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem' }}>Scolarité</h3>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
+                    <div className="form-group">
+                      <label className="form-label">Classe demandée <span className="text-danger">*</span></label>
+                      <select className="form-input" required value={enrollmentForm.className} onChange={e => setEnrollmentForm({...enrollmentForm, className: e.target.value})}>
+                        <option value="">Sélectionner une classe</option>
+                        {classes.map(c => (
+                          <option key={c.id} value={c.name}>{c.name} - Frais: {formatMoney(c.fee)}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Statut</label>
+                      <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                          <input type="radio" name="studentStatus" checked={enrollmentForm.isNewStudent} onChange={() => setEnrollmentForm({...enrollmentForm, isNewStudent: true})} />
+                          Nouveau
+                        </label>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                          <input type="radio" name="studentStatus" checked={!enrollmentForm.isNewStudent} onChange={() => setEnrollmentForm({...enrollmentForm, isNewStudent: false})} />
+                          Ancien
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Contacts d'Urgence */}
+                  <h3 style={{ fontSize: '1.125rem', fontWeight: 600, marginBottom: '1rem', color: 'var(--text-primary)', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem' }}>En cas d'urgence (Parents / Tuteurs)</h3>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '2rem' }}>
+                    <div className="form-group" style={{ gridColumn: 'span 2' }}>
+                      <label className="form-label">Nom et Prénom du parent</label>
+                      <input type="text" className="form-input" value={enrollmentForm.parentName} onChange={e => setEnrollmentForm({...enrollmentForm, parentName: e.target.value})} placeholder="Père, Mère ou Tuteur légal" />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Téléphone</label>
+                      <input type="tel" className="form-input" value={enrollmentForm.parentPhone} onChange={e => setEnrollmentForm({...enrollmentForm, parentPhone: e.target.value})} placeholder="+00 00 00 00 00" />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Email</label>
+                      <input type="email" className="form-input" value={enrollmentForm.parentEmail} onChange={e => setEnrollmentForm({...enrollmentForm, parentEmail: e.target.value})} placeholder="parent@exemple.com" />
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
+                    <button type="button" className="btn-secondary" onClick={() => setEnrollmentForm({ lastName: '', firstName: '', className: '', birthDate: '', birthPlace: '', address: '', isNewStudent: true, parentName: '', parentPhone: '', parentEmail: '' })}>Réinitialiser</button>
+                    <button type="submit" className="btn-primary"><UserPlus size={18} /> Inscrire l'élève</button>
+                  </div>
+                </form>
+              </div>
             </div>
           </div>
         )}
@@ -464,7 +891,7 @@ function App() {
                   <h2 className="card-title">Informations Générales</h2>
                 </div>
                 <div className="card-body">
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+                  <div className="settings-form-grid">
                     <div className="form-group">
                       <label className="form-label">Nom de l'établissement</label>
                       <input type="text" className="form-input" value={settings.schoolName} onChange={(e) => setSettings({...settings, schoolName: e.target.value})} />
