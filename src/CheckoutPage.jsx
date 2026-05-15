@@ -9,13 +9,14 @@ function CheckoutPage({ onBack, onSuccess, plan }) {
   const handlePayment = (e) => {
     e.preventDefault();
     setIsProcessing(true);
+    // Simulation réaliste de l'attente du Push USSD (6 secondes)
     setTimeout(() => {
       setIsProcessing(false);
       setIsSuccess(true);
       setTimeout(() => {
         onSuccess();
       }, 2000);
-    }, 2000);
+    }, 6000);
   };
 
   if (isSuccess) {
@@ -54,17 +55,79 @@ function CheckoutPage({ onBack, onSuccess, plan }) {
                   <input type="email" className="form-input" required placeholder="direction@ecole.com" />
                 </div>
 
+                <div className="form-group" style={{ marginTop: '2rem' }}>
+                  <label className="form-label">Méthode de Paiement</label>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '1rem' }}>
+                    {['Orange Money', 'MTN Mobile Money', 'Wave', 'Moov Africa'].map((method) => (
+                      <label 
+                        key={method} 
+                        style={{ 
+                          display: 'flex', 
+                          flexDirection: 'column', 
+                          alignItems: 'center', 
+                          padding: '1rem', 
+                          border: `2px solid ${paymentMethod === method ? 'var(--primary)' : 'var(--border)'}`, 
+                          borderRadius: '8px', 
+                          cursor: 'pointer',
+                          backgroundColor: paymentMethod === method ? 'rgba(79, 70, 229, 0.05)' : 'transparent',
+                          transition: 'all 0.2s'
+                        }}
+                      >
+                        <input 
+                          type="radio" 
+                          name="paymentMethod" 
+                          value={method} 
+                          checked={paymentMethod === method} 
+                          onChange={(e) => setPaymentMethod(e.target.value)} 
+                          style={{ display: 'none' }} 
+                        />
+                        <Smartphone size={24} style={{ marginBottom: '0.5rem', color: paymentMethod === method ? 'var(--primary)' : 'var(--text-secondary)' }} />
+                        <span style={{ fontSize: '0.875rem', fontWeight: paymentMethod === method ? '600' : '400', textAlign: 'center' }}>{method}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Numéro de téléphone ({paymentMethod})</label>
+                  <div style={{ display: 'flex' }}>
+                    <select className="form-select" style={{ borderRight: 'none', borderRadius: '8px 0 0 8px', width: '120px', backgroundColor: 'var(--bg-secondary)' }}>
+                      <option value="+237">🇨🇲 +237</option>
+                      <option value="+225">🇨🇮 +225</option>
+                      <option value="+221">🇸🇳 +221</option>
+                      <option value="+241">🇬🇦 +241</option>
+                      <option value="+243">🇨🇩 +243</option>
+                      <option value="+242">🇨🇬 +242</option>
+                      <option value="+228">🇹🇬 +228</option>
+                      <option value="+229">🇧🇯 +229</option>
+                      <option value="+226">🇧🇫 +226</option>
+                      <option value="+223">🇲🇱 +223</option>
+                      <option value="+33">🇫🇷 +33</option>
+                    </select>
+                    <input type="tel" className="form-input" required placeholder="6XX XX XX XX" style={{ borderRadius: '0 8px 8px 0', flex: 1 }} />
+                  </div>
+                </div>
+
                 <div style={{ padding: '1rem', backgroundColor: 'rgba(79,70,229,0.05)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', marginTop: '2rem', marginBottom: '1.5rem' }}>
                   <h3 style={{ fontSize: '1rem', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <Lock size={16} className="text-success" /> Abonnement SaaS
+                    <Lock size={16} className="text-success" /> Paiement Sécurisé
                   </h3>
                   <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-                    Cliquez ci-dessous pour valider votre inscription à la plateforme.
+                    {isProcessing 
+                      ? "Veuillez consulter votre téléphone. Un message est apparu pour vous demander de valider la transaction avec votre code PIN secret." 
+                      : `Vous serez débité de ${plan?.price || 0} FCFA via ${paymentMethod}.`}
                   </p>
                 </div>
 
-                <button type="submit" className="btn-primary" style={{ width: '100%', padding: '1rem', justifyContent: 'center' }} disabled={isProcessing}>
-                  {isProcessing ? 'Validation...' : 'Confirmer l\'abonnement'}
+                <button type="submit" className="btn-primary" style={{ width: '100%', padding: '1rem', justifyContent: 'center', position: 'relative' }} disabled={isProcessing}>
+                  {isProcessing ? (
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <span className="spinner" style={{ width: '20px', height: '20px', border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></span>
+                      Validation sur votre téléphone en cours...
+                    </span>
+                  ) : (
+                    `Payer ${plan?.price || 0} FCFA`
+                  )}
                 </button>
               </form>
             </div>

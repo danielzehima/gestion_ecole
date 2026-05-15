@@ -3,6 +3,8 @@ import { ShieldCheck, Clock, Smartphone, LineChart, ArrowRight, CheckCircle2, Cr
 
 function LandingPage({ onLogin, onSubscribe }) {
   const [isAnnual, setIsAnnual] = useState(false);
+  const [isContactModalOpen, setIsContactModalOpen] = useState(false);
+  const [contactStatus, setContactStatus] = useState(null);
 
   return (
     <div className="landing-page">
@@ -20,6 +22,7 @@ function LandingPage({ onLogin, onSubscribe }) {
             <a href="#benefits">Avantages</a>
             <a href="#testimonials">Témoignages</a>
             <a href="#pricing">Tarifs</a>
+            <a href="#" onClick={(e) => { e.preventDefault(); setIsContactModalOpen(true); setContactStatus(null); }}>Contact</a>
           </div>
           <div className="landing-nav-actions">
             <button className="btn-text" onClick={onLogin}>Connexion</button>
@@ -293,7 +296,7 @@ function LandingPage({ onLogin, onSubscribe }) {
                 <li><CheckCircle2 size={18} className="feature-check" /> Formation sur site</li>
               </ul>
               
-              <button className="btn-pricing outline" onClick={() => onSubscribe({ name: 'Forfait Excellence', price: 'Sur devis', period: isAnnual ? 'Annuel' : 'Mensuel' })}>Contacter les ventes</button>
+              <button className="btn-pricing outline" onClick={() => { setIsContactModalOpen(true); setContactStatus(null); }}>Contacter les ventes</button>
             </div>
           </div>
 
@@ -369,7 +372,7 @@ function LandingPage({ onLogin, onSubscribe }) {
             <div className="footer-links">
               <a href="#">Mentions légales</a>
               <a href="#">Confidentialité</a>
-              <a href="#">Contact</a>
+              <a href="#" onClick={(e) => { e.preventDefault(); setIsContactModalOpen(true); setContactStatus(null); }}>Contact</a>
             </div>
           </div>
           <div className="footer-bottom">
@@ -377,6 +380,81 @@ function LandingPage({ onLogin, onSubscribe }) {
           </div>
         </div>
       </footer>
+
+      {/* Contact Modal */}
+      {isContactModalOpen && (
+        <div className="modal-overlay" onClick={() => setIsContactModalOpen(false)} style={{ zIndex: 9999 }}>
+          <div className="modal-content" style={{ maxWidth: '500px' }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Contacter l'équipe ScolariPay</h2>
+              <button className="modal-close" onClick={() => setIsContactModalOpen(false)}>×</button>
+            </div>
+            <div className="modal-body">
+              {contactStatus === 'sent' ? (
+                <div style={{ textAlign: 'center', padding: '2rem' }}>
+                  <CheckCircle2 size={48} className="text-success" style={{ margin: '0 auto 1rem', color: 'var(--success)' }} />
+                  <h3 style={{ fontSize: '1.25rem', marginBottom: '0.5rem' }}>Message envoyé avec succès !</h3>
+                  <p style={{ color: 'var(--text-secondary)' }}>Notre équipe commerciale vous contactera dans les plus brefs délais pour répondre à vos questions.</p>
+                  <button className="btn-primary" style={{ marginTop: '1.5rem' }} onClick={() => setIsContactModalOpen(false)}>Fermer</button>
+                </div>
+              ) : (
+                <form onSubmit={(e) => {
+                  e.preventDefault();
+                  setContactStatus('sending');
+                  setTimeout(() => setContactStatus('sent'), 1500);
+                }}>
+                  <p style={{ marginBottom: '1.5rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
+                    Vous souhaitez en savoir plus, demander une démo sur-mesure ou obtenir un devis personnalisé ? Remplissez ce formulaire.
+                  </p>
+                  <div className="form-group">
+                    <label className="form-label">Nom de l'établissement</label>
+                    <input type="text" className="form-input" required placeholder="Ex: Groupe Scolaire Les Oliviers" />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Votre nom complet</label>
+                    <input type="text" className="form-input" required placeholder="Ex: Jean Dupont" />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Email professionnel</label>
+                    <input type="email" className="form-input" required placeholder="direction@ecole.com" />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Téléphone</label>
+                    <div style={{ display: 'flex' }}>
+                      <select className="form-select" style={{ borderRight: 'none', borderRadius: '8px 0 0 8px', width: '120px', backgroundColor: 'var(--bg-secondary)' }}>
+                        <option value="+237">🇨🇲 +237</option>
+                        <option value="+225">🇨🇮 +225</option>
+                        <option value="+221">🇸🇳 +221</option>
+                        <option value="+241">🇬🇦 +241</option>
+                        <option value="+243">🇨🇩 +243</option>
+                        <option value="+242">🇨🇬 +242</option>
+                        <option value="+228">🇹🇬 +228</option>
+                        <option value="+229">🇧🇯 +229</option>
+                        <option value="+226">🇧🇫 +226</option>
+                        <option value="+223">🇲🇱 +223</option>
+                        <option value="+33">🇫🇷 +33</option>
+                      </select>
+                      <input type="tel" className="form-input" required placeholder="6XX XX XX XX" style={{ borderRadius: '0 8px 8px 0', flex: 1 }} />
+                    </div>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Votre message</label>
+                    <textarea className="form-input" required placeholder="Décrivez vos besoins..." rows="4" style={{ resize: 'vertical' }}></textarea>
+                  </div>
+                  <button type="submit" className="btn-primary" style={{ width: '100%', padding: '0.75rem', justifyContent: 'center' }} disabled={contactStatus === 'sending'}>
+                    {contactStatus === 'sending' ? (
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <span className="spinner" style={{ width: '16px', height: '16px', border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></span>
+                        Envoi en cours...
+                      </span>
+                    ) : 'Envoyer le message'}
+                  </button>
+                </form>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
