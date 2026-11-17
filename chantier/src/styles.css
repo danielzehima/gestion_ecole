@@ -24,7 +24,7 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --bg: #0C0A09;
     --card: #1C1917;
     --text: #F5F5F4;
@@ -40,13 +40,28 @@
     color-scheme: dark;
   }
 }
+:root[data-theme="dark"] {
+    --bg: #0C0A09;
+    --card: #1C1917;
+    --text: #F5F5F4;
+    --muted: #A8A29E;
+    --border: #292524;
+    --accent-soft: #431407;
+    --ok-soft: #052E16;
+    --warn-soft: #451A03;
+    --late-soft: #450A0A;
+    --info-soft: #082F49;
+    --c-rdv: #3B82F6;
+    --c-journal: #8B5CF6;
+    color-scheme: dark;
+}
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: Inter, system-ui, sans-serif; background: var(--bg); color: var(--text); font-size: 15px; line-height: 1.45; }
 button, input, select, textarea { font: inherit; color: inherit; }
 button { cursor: pointer; background: none; border: none; }
 
-.app { max-width: 1200px; margin: 0 auto; padding: 16px; }
+.app { max-width: 1200px; margin: 0 auto; padding-block: 16px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
 .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
 .muted { color: var(--muted); font-size: 13px; }
 .small { font-size: 13px; }
@@ -66,6 +81,8 @@ button { cursor: pointer; background: none; border: none; }
 .btn.ghost { border-color: var(--border); }
 .btn.ghost:hover { background: var(--bg); }
 .btn.danger { color: var(--late); border-color: var(--late-soft); }
+.btn.danger.armed { background: var(--late); color: #fff; }
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); background: var(--text); color: var(--card); padding: 10px 16px; border-radius: 8px; font-size: 14px; z-index: 20; max-width: calc(100% - 32px); }
 .btn.small { padding: 5px 10px; font-size: 13px; background: var(--card); border-color: var(--border); }
 .icon-btn { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 8px; color: var(--muted); }
 .icon-btn:hover { background: var(--bg); color: var(--text); }

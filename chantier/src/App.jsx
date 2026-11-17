@@ -17,6 +17,8 @@ export default function App() {
   const [view, setView] = useState(() => ({ year: now.getFullYear(), month: now.getMonth() }));
   const [editing, setEditing] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
+  const [toast, setToast] = useState('');
+  const flash = (msg) => { setToast(msg); setTimeout(() => setToast(''), 4000); };
 
   const { items, settings } = state;
 
@@ -56,7 +58,6 @@ export default function App() {
   };
 
   const deleteItem = (id) => {
-    if (!confirm('Supprimer cet élément ?')) return;
     update((list) => list.filter((i) => i.id !== id));
     setEditing(null);
   };
@@ -73,10 +74,12 @@ export default function App() {
 
   const enableNotifications = async () => {
     if (typeof Notification === 'undefined') {
-      alert("Ce navigateur ne gère pas les notifications. Les rappels restent visibles dans l'assistant.");
+      flash("Les notifications ne sont pas disponibles ici. Les rappels restent visibles dans l'assistant.");
       return;
     }
-    const perm = await Notification.requestPermission();
+    let perm = 'denied';
+    try { perm = await Notification.requestPermission(); } catch { /* refusé */ }
+    if (perm !== 'granted') flash("Notifications refusées. Les rappels restent visibles dans l'assistant.");
     setState((s) => ({ ...s, settings: { ...s.settings, notifications: perm === 'granted' } }));
     if (perm === 'granted') new Notification('Assistant de rappel activé', { body: 'Je vous préviendrai pour vos rendez-vous et validations.', icon: '/favicon.svg' });
   };
@@ -93,11 +96,11 @@ export default function App() {
   const doImport = async (file) => {
     try {
       const data = parseImport(await file.text());
-      if (!confirm(`Remplacer les données actuelles par ${data.items.length} éléments importés ?`)) return;
       setState((s) => ({ ...s, ...data }));
       setShowSettings(false);
+      flash(`${data.items.length} éléments importés.`);
     } catch (e) {
-      alert(`Import impossible : ${e.message}`);
+      flash(`Import impossible : ${e.message}`);
     }
   };
 
@@ -163,6 +166,7 @@ export default function App() {
         </aside>
       </main>
 
+      {toast && <div className="toast" role="status">{toast}</div>}
       {editing && <ItemForm key={editing.id} initial={editing} onSave={saveItem} onCancel={() => setEditing(null)} onDelete={deleteItem} />}
       {showSettings && (
         <Settings

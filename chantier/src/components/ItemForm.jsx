@@ -4,6 +4,7 @@ import { TYPES } from '../store.js';
 
 export default function ItemForm({ initial, onSave, onCancel, onDelete }) {
   const [form, setForm] = useState(initial);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
 
   const submit = (e) => {
@@ -59,7 +60,7 @@ export default function ItemForm({ initial, onSave, onCancel, onDelete }) {
         <label>Notes<textarea rows={3} value={form.notes} onChange={set('notes')} placeholder="Détails, matériaux, observations…" /></label>
 
         <footer className="modal-foot">
-          {isEdit && onDelete && <button type="button" className="btn danger" onClick={() => onDelete(form.id)}>Supprimer</button>}
+          {isEdit && onDelete && <button type="button" className={`btn danger ${confirmDelete ? 'armed' : ''}`} onClick={() => (confirmDelete ? onDelete(form.id) : setConfirmDelete(true))}>{confirmDelete ? 'Confirmer la suppression' : 'Supprimer'}</button>}
           <span className="spacer" />
           <button type="button" className="btn ghost" onClick={onCancel}>Annuler</button>
           <button type="submit" className="btn primary">Enregistrer</button>
