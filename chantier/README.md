@@ -14,6 +14,7 @@ Calendrier de chantier avec un assistant de rappel.
   - éléments en retard des jours précédents.
   
   Notifications système une seule fois par rappel (cloche dans l'assistant).
+- **Saisie vocale** : « Dites-le à l'assistant » — on dicte (micro de l'app ou du clavier), l'assistant crée les éléments (Claude si disponible, sinon analyseur local `src/parse.js`).
 - **Réglages** : nom du chantier, horaires de l'assistant, export/import JSON.
 
 ## Lancer

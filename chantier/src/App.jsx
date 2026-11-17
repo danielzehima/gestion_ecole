@@ -5,6 +5,8 @@ import DayPanel from './components/DayPanel.jsx';
 import AgentPanel from './components/AgentPanel.jsx';
 import ItemForm from './components/ItemForm.jsx';
 import Settings from './components/Settings.jsx';
+import VoiceCapture from './components/VoiceCapture.jsx';
+import { getCapability } from './capabilities.js';
 import { load, save, makeItem, exportJson, parseImport } from './store.js';
 import { computeReminders, notifyNew } from './agent.js';
 import { todayKey, fromKey } from './dates.js';
@@ -62,6 +64,23 @@ export default function App() {
     setEditing(null);
   };
 
+  const createFromVoice = (fields) => {
+    const created = fields.map((f) => makeItem(f));
+    update((list) => [...list, ...created]);
+    return created.map((i) => i.id);
+  };
+
+  const removeIds = (ids) => update((list) => list.filter((i) => !ids.includes(i.id)));
+
+  const openItem = (id) => {
+    const it = state.items.find((i) => i.id === id);
+    if (!it) return;
+    setSelected(it.date);
+    const d = fromKey(it.date);
+    setView({ year: d.getFullYear(), month: d.getMonth() });
+    setEditing(it);
+  };
+
   const setValidated = (ids, value) => {
     const stamp = new Date().toISOString();
     update((list) => list.map((i) => (ids.includes(i.id) ? { ...i, validated: value, validatedAt: value ? stamp : null } : i)));
@@ -84,7 +103,17 @@ export default function App() {
     if (perm === 'granted') new Notification('Assistant de rappel activé', { body: 'Je vous préviendrai pour vos rendez-vous et validations.', icon: '/favicon.svg' });
   };
 
-  const doExport = () => {
+  const doExport = async () => {
+    const downloads = await getCapability('downloads');
+    if (downloads) {
+      try {
+        await downloads.save({ filename: `chantier-${today}.json`, data: exportJson(state) });
+        flash('Sauvegarde exportée.');
+      } catch {
+        flash("Export annulé.");
+      }
+      return;
+    }
     const blob = new Blob([exportJson(state)], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -132,6 +161,8 @@ export default function App() {
         <Stat icon={ListTodo} label="À venir" value={stats.upcoming} />
         <Stat icon={AlertTriangle} label="En retard" value={stats.late} tone={stats.late ? 'late' : ''} />
       </div>
+
+      <VoiceCapture onCreate={createFromVoice} onUndo={removeIds} onOpen={openItem} />
 
       <main className="layout">
         <div className="col-main">
